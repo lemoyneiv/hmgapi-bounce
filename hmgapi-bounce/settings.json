@@ -1,0 +1,34 @@
+{
+  "settings": [
+    {
+      "key": "reset_projection_apps",
+      "type": "toggle",
+      "default": true,
+      "apply": "live",
+      "title": "Also refresh Android Auto & CarPlay background workers",
+      "description": "Sends SIGTERM to HKMC_GPM (projection.sink) and HKMC_DiPO strictly while Bluetooth is off so stuck SPP/Bonjour sockets reset cleanly, while leaving PhoneProjection bound to PPService. Turn off to cycle Wi-Fi SoftAP and Bluetooth radios only."
+    },
+    {
+      "key": "auto_bounce_mode",
+      "type": "choice",
+      "default": "off",
+      "apply": "live",
+      "title": "Automatic silent bounce on startup / standby wake",
+      "description": "Controls whether Bounce Connection also runs silently without toasts when waking from standby or starting the car.",
+      "options": [
+        {
+          "value": "off",
+          "title": "Off (Manual Home Screen tile or ★ key only)"
+        },
+        {
+          "value": "watchdog",
+          "title": "Smart Watchdog (If Bluetooth connects without CarPlay/AA within 15s)"
+        },
+        {
+          "value": "every_wake",
+          "title": "Proactive (Bounce immediately on every standby / quick-stop wake)"
+        }
+      ]
+    }
+  ]
+}

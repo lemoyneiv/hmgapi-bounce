@@ -1,0 +1,83 @@
+{
+  "id": "hmgapi-bounce",
+  "name": "Bounce Connection",
+  "version": "0.1.0",
+  "hmgapi": ">=1.1.0",
+  "authors": ["lemoyneiv"],
+  "license": "AGPL-3.0",
+  "repo": "https://github.com/lemoyneiv/hmgapi-bounce",
+  "description": "Fast (~5s), cold-boot-safe Wi-Fi SoftAP, Bluetooth & Wireless CarPlay/Android Auto soft-reset for Gen5W head units: zero-idle-RAM on-demand root reset, 1-tap Home Screen tile, ★ custom key action, and optional post-wake watchdog.",
+  "live": true,
+  "apps": [
+    {
+      "apk": "app/Bounce.apk",
+      "package": "dev.lemoyne.bounce"
+    }
+  ],
+  "services": [
+    {
+      "name": "bounce",
+      "jar": "app/Bounce.apk",
+      "class": "dev.lemoyne.bounce.BounceRunner",
+      "args": ["manual"],
+      "user": "root",
+      "start": "manual",
+      "restart": false
+    },
+    {
+      "name": "bounce-silent",
+      "jar": "app/Bounce.apk",
+      "class": "dev.lemoyne.bounce.BounceRunner",
+      "args": ["silent"],
+      "user": "root",
+      "start": "manual",
+      "restart": false
+    },
+    {
+      "name": "watchdog",
+      "jar": "app/Bounce.apk",
+      "class": "dev.lemoyne.bounce.BounceRunner",
+      "args": ["watchdog"],
+      "user": "root",
+      "start": "manual",
+      "restart": false
+    },
+    {
+      "name": "cleanup",
+      "jar": "app/Bounce.apk",
+      "class": "dev.lemoyne.bounce.BounceRunner",
+      "args": ["cleanup"],
+      "user": "root",
+      "start": "boot",
+      "restart": false
+    }
+  ],
+  "car_events": {
+    "wake": {},
+    "unparked": {}
+  },
+  "provides": {
+    "launcher": [
+      {
+        "title": "Bounce Connection",
+        "package": "dev.lemoyne.bounce",
+        "class": ".BounceActivity",
+        "icon": "icons/icon.png",
+        "icon_night": "icons/icon_night.png",
+        "icon_disabled": "icons/icon_disabled.png",
+        "icon_disabled_night": "icons/icon_disabled_night.png"
+      }
+    ],
+    "star_key": [
+      {
+        "id": "bounce",
+        "title": "Bounce Connection",
+        "broadcast": "dev.lemoyne.bounce.ACTION_BOUNCE"
+      }
+    ]
+  },
+  "logs": {
+    "tags": ["HmgBounce"],
+    "match": ["[hmgapi-bounce]"]
+  }
+}
