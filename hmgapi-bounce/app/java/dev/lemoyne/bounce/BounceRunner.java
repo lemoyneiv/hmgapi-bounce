@@ -276,6 +276,17 @@ public final class BounceRunner {
             }
         }
 
+        // Ensure WifiStateMachine has completely exited WIFI_AP_STATE_DISABLING (10) after
+        // GalReceiver/DiPO sockets closed before requesting Phase 4 SoftAP re-enable!
+        long apDrainStart = SystemClock.elapsedRealtime();
+        while ((SystemClock.elapsedRealtime() - apDrainStart) < BouncePolicy.SOFTAP_DISABLING_DRAIN_MS) {
+            int apSt = invokeIntBinder("wifi", "getWifiApEnabledState", BouncePolicy.WIFI_AP_STATE_DISABLED);
+            if (BouncePolicy.isSoftApReadyForReenable(apSt)) {
+                break;
+            }
+            sleepQuietly(120L);
+        }
+
         // ---- Phase 4: Bring Mode 2 (5 GHz Connectivity) SoftAP UP FIRST ----
         long apStart = SystemClock.elapsedRealtime();
         enableConnectivitySoftAp();
@@ -472,6 +483,12 @@ public final class BounceRunner {
                     cls.getMethod("disable", String.class, boolean.class).invoke(bt, "android", Boolean.FALSE);
                 }
             } else {
+                holdingBtOff = false;
+                BT_MARKER_FILE.delete();
+                int btSt = readBluetoothState();
+                if (!BouncePolicy.shouldInvokeBluetoothEnable(btSt)) {
+                    return;
+                }
                 boolean done = false;
                 try {
                     cls.getMethod("enable").invoke(bt);
@@ -480,8 +497,6 @@ public final class BounceRunner {
                 if (!done) {
                     cls.getMethod("enable", String.class).invoke(bt, "android");
                 }
-                holdingBtOff = false;
-                BT_MARKER_FILE.delete();
             }
         } catch (Throwable t) {
             logErr("setBluetoothEnabledVolatile(" + enable + ")", t);

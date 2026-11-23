@@ -15,7 +15,7 @@ public final class BouncePolicy {
 
     private BouncePolicy() {}
 
-    public static final String VERSION = "0.1.0";
+    public static final String VERSION = "0.1.1";
 
     /** Gen5W ModeManager ModeType constants. */
     public static final int MODE_NONE = 0;
@@ -51,6 +51,7 @@ public final class BouncePolicy {
     public static final long DISCONNECT_GRACE_MS = 350L;
     public static final long RADIO_DOWN_TIMEOUT_MS = 3_500L;
     public static final long WORKER_SETTLE_MS = 300L;
+    public static final long SOFTAP_DISABLING_DRAIN_MS = 6_000L;
     public static final long SOFTAP_UP_TIMEOUT_MS = 4_000L;
     public static final long BT_UP_TIMEOUT_MS = 4_500L;
     public static final long RECONNECT_NUDGE_DELAY_MS = 6_000L;
@@ -257,6 +258,25 @@ public final class BouncePolicy {
         if (!ignOn || btState != BT_STATE_ON) return false;
         if (cpUp || aaUp || callActive || homeWifiHold) return false;
         return !normalizeBtMac(liveHfpMac).isEmpty() || !normalizeBtMac(liveConnMac).isEmpty();
+    }
+
+    /**
+     * Prevents calling {@code IBluetoothManager.enable()} a second time when Android 4.4
+     * {@code BluetoothManagerService} is already in {@code STATE_TURNING_ON (11)} or
+     * {@code STATE_ON (12)} (which otherwise arms {@code MESSAGE_TIMEOUT_BIND} and drops BT 60s later).
+     */
+    public static boolean shouldInvokeBluetoothEnable(int btState) {
+        return btState != BT_STATE_TURNING_ON && btState != BT_STATE_ON;
+    }
+
+    /**
+     * Returns true once {@code WifiStateMachine} has finished exiting {@code SoftApStoppingState}
+     * ({@code WIFI_AP_STATE_DISABLING == 10}) and is neither active nor enabling.
+     */
+    public static boolean isSoftApReadyForReenable(int apState) {
+        return apState != WIFI_AP_STATE_DISABLING
+                && apState != WIFI_AP_STATE_ENABLING
+                && apState != WIFI_AP_STATE_ENABLED;
     }
 
     public static boolean isHomeWifiOrParkedHoldActive(

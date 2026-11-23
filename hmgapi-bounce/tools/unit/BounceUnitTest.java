@@ -180,6 +180,16 @@ public final class BounceUnitTest {
         String redacted = BouncePolicy.redactMac("AA:BB:CC:DD:EE:FF");
         check("redactMac produces deterministic bt#xxxxxx tag without raw octets",
                 redacted.startsWith("bt#") && redacted.length() == 9 && !redacted.contains("AA"));
+
+        // v0.1.1: Duplicate IBluetoothManager.enable() guard & SoftAP AP_STATE_DISABLING drain check
+        check("shouldInvokeBluetoothEnable skips duplicate enable() when TURNING_ON (11) or ON (12)",
+                !BouncePolicy.shouldInvokeBluetoothEnable(BouncePolicy.BT_STATE_TURNING_ON)
+                        && !BouncePolicy.shouldInvokeBluetoothEnable(BouncePolicy.BT_STATE_ON)
+                        && BouncePolicy.shouldInvokeBluetoothEnable(BouncePolicy.BT_STATE_OFF));
+        check("isSoftApReadyForReenable waits while AP_STATE_DISABLING (10) and allows DISABLED (11)",
+                !BouncePolicy.isSoftApReadyForReenable(BouncePolicy.WIFI_AP_STATE_DISABLING)
+                        && !BouncePolicy.isSoftApReadyForReenable(BouncePolicy.WIFI_AP_STATE_ENABLED)
+                        && BouncePolicy.isSoftApReadyForReenable(BouncePolicy.WIFI_AP_STATE_DISABLED));
     }
 
     private static void check(String label, boolean cond) {
