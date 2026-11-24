@@ -22,6 +22,8 @@ final class BounceDispatcher {
 
     private BounceDispatcher() {}
 
+    private static final long[] BUSY_BACKOFF_MS = { 80L, 160L, 320L };
+
     static void triggerManualAsync(final Context context, final BroadcastReceiver.PendingResult pending) {
         final Context appCtx = context != null && context.getApplicationContext() != null
                 ? context.getApplicationContext()
@@ -43,7 +45,7 @@ final class BounceDispatcher {
                         }
                         return;
                     }
-                    api.startService("bounce");
+                    startServiceWithRetry(api, "bounce");
                 } catch (Throwable ex) {
                     Log.e(TAG, "[hmgapi-bounce] manual trigger error", ex);
                     if (appCtx != null) {
@@ -72,22 +74,22 @@ final class BounceDispatcher {
                 try {
                     HmgApi api = HmgApi.connect().timeout(4000);
                     if (!api.available()) return;
-                    JSONObject settings = api.settings();
+                    JSONObject settings = settingsWithRetry(api);
                     String mode = settings != null ? settings.optString("auto_bounce_mode", "off") : "off";
                     if ("off".equals(mode) || mode.isEmpty()) {
                         return;
                     }
-                    List<HmgApi.Service> svcs = api.services();
+                    List<HmgApi.Service> svcs = servicesWithRetry(api);
                     if (isRunning(svcs, "bounce") || isRunning(svcs, "bounce-silent")) {
                         return;
                     }
                     if ("every_wake".equals(mode)) {
                         if (HmgApi.EVENT_WAKE.equals(eventType) || HmgApi.EVENT_UNPARKED.equals(eventType)) {
-                            api.startService("bounce-silent");
+                            startServiceWithRetry(api, "bounce-silent");
                         }
                     } else if ("watchdog".equals(mode)) {
                         if (!isRunning(svcs, "watchdog")) {
-                            api.startService("watchdog");
+                            startServiceWithRetry(api, "watchdog");
                         }
                     }
                 } catch (Throwable ex) {
@@ -107,10 +109,58 @@ final class BounceDispatcher {
 
     private static boolean isAnyBounceRunning(HmgApi api) {
         try {
-            List<HmgApi.Service> svcs = api.services();
+            List<HmgApi.Service> svcs = servicesWithRetry(api);
             return isRunning(svcs, "bounce") || isRunning(svcs, "bounce-silent");
         } catch (Throwable ignored) {
             return false;
+        }
+    }
+
+    private static List<HmgApi.Service> servicesWithRetry(HmgApi api) throws Exception {
+        for (int i = 0; ; i++) {
+            try {
+                return api.services();
+            } catch (Exception ex) {
+                if (i >= BUSY_BACKOFF_MS.length || !BouncePolicy.isTransientHmgapidBusyError(ex.getMessage())) {
+                    throw ex;
+                }
+                sleepQuietly(BUSY_BACKOFF_MS[i]);
+            }
+        }
+    }
+
+    private static JSONObject settingsWithRetry(HmgApi api) throws Exception {
+        for (int i = 0; ; i++) {
+            try {
+                return api.settings();
+            } catch (Exception ex) {
+                if (i >= BUSY_BACKOFF_MS.length || !BouncePolicy.isTransientHmgapidBusyError(ex.getMessage())) {
+                    throw ex;
+                }
+                sleepQuietly(BUSY_BACKOFF_MS[i]);
+            }
+        }
+    }
+
+    private static void startServiceWithRetry(HmgApi api, String name) throws Exception {
+        for (int i = 0; ; i++) {
+            try {
+                api.startService(name);
+                return;
+            } catch (Exception ex) {
+                if (i >= BUSY_BACKOFF_MS.length || !BouncePolicy.isTransientHmgapidBusyError(ex.getMessage())) {
+                    throw ex;
+                }
+                sleepQuietly(BUSY_BACKOFF_MS[i]);
+            }
+        }
+    }
+
+    private static void sleepQuietly(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 

@@ -604,24 +604,25 @@ public final class BounceRunner {
     }
 
     /**
-     * Self-heals HMG-API's Home Wi-Fi daemon (@hmgapi-wifi) during manual bounces if hmgapid
-     * reports hmgapi/wifi running while @hmgapi-wifi fails to respond within 800ms.
+     * Self-heals custom HomeWifiDaemon (@hmgapi-wifi) builds during manual bounces if hmgapid
+     * reports hmgapi/wifi running while @hmgapi-wifi accepts connections without answering in 800ms.
+     * Pure no-op on stock Open-HMG/HMG-API (where state/wifi.sh is a shell loop without HomeWifiDaemon).
      */
     private static void healStalledHomeWifiIfNeeded() {
         try {
             String status = readSmallUtf8(new File("/data/hmgapi/state/services.status"));
-            if (!status.contains("hmgapi wifi running ")) {
-                return;
-            }
             String asks = readSmallUtf8(new File("/data/hmgapi/state/wifi.txt"));
-            if (!asks.contains("home")) {
+            String wifiSh = readSmallUtf8(new File("/data/hmgapi/state/wifi.sh"));
+            if (!BouncePolicy.shouldProbeHomeWifiDaemonSocket(status, asks, wifiSh)) {
                 return;
             }
             android.net.LocalSocket s = new android.net.LocalSocket();
+            boolean connected = false;
             boolean ok = false;
             try {
                 s.connect(new android.net.LocalSocketAddress(
                         "hmgapi-wifi", android.net.LocalSocketAddress.Namespace.ABSTRACT));
+                connected = true;
                 s.setSoTimeout(800);
                 byte[] req = new byte[] {
                     'L', 'F', 'D', '1',
@@ -641,7 +642,7 @@ public final class BounceRunner {
             } finally {
                 try { s.close(); } catch (Throwable ignored) {}
             }
-            if (!ok) {
+            if (connected && !ok) {
                 File ctlDir = new File("/data/hmgapi/state/ctl");
                 ctlDir.mkdirs();
                 File ctl = new File(ctlDir, "bounce-wifi-" + android.os.Process.myPid());

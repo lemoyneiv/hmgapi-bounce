@@ -15,7 +15,7 @@ public final class BouncePolicy {
 
     private BouncePolicy() {}
 
-    public static final String VERSION = "0.1.2";
+    public static final String VERSION = "0.1.3";
 
     /** Gen5W ModeManager ModeType constants. */
     public static final int MODE_NONE = 0;
@@ -313,6 +313,35 @@ public final class BouncePolicy {
         }
         return isActiveLeaseFresh(curBootId, nowElapsedMs, keepawakeJson)
                 || isActiveLeaseFresh(curBootId, nowElapsedMs, openlinkKeepawakeJson);
+    }
+
+    /**
+     * Gates {@code @hmgapi-wifi} health probes so stock {@code Open-HMG/HMG-API} installs
+     * (whose {@code state/wifi.sh} is a pure shell loop with no {@code HomeWifiDaemon} socket)
+     * are never falsely restarted, while custom {@code HomeWifiDaemon} builds still self-heal.
+     */
+    public static boolean shouldProbeHomeWifiDaemonSocket(
+            String servicesStatus,
+            String wifiAsks,
+            String wifiShContent) {
+        if (servicesStatus == null || !servicesStatus.contains("hmgapi wifi running ")) {
+            return false;
+        }
+        if (wifiAsks == null || !wifiAsks.contains("home")) {
+            return false;
+        }
+        return wifiShContent != null && wifiShContent.contains("HomeWifiDaemon");
+    }
+
+    /**
+     * Identifies transient {@code hmgapid} worker-slot saturation ({@code EX_TEMPFAIL == 75} or
+     * stock {@code MAX_WORKERS} {@code EPIPE} {@code "Broken pipe"}) so client IPC calls retry
+     * cleanly on both stock and custom {@code HMG-API} builds.
+     */
+    public static boolean isTransientHmgapidBusyError(String message) {
+        if (message == null || message.isEmpty()) return false;
+        String low = message.toLowerCase(Locale.US);
+        return low.contains("hmgapid is busy") || low.contains("broken pipe");
     }
 
     static boolean isActiveLeaseFresh(String curBootId, long nowElapsedMs, String json) {

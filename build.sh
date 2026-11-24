@@ -1,7 +1,9 @@
 #!/bin/sh
-# Build, test, and sign installable HMG-API packages for hmgapi-bounce into dist/:
-#   dist/hmgapi-bounce-v<ver>.zip            Signed HMG-API mod archive (for Wi-Fi ADB or CLI install)
-#   dist/hmgapi-bounce-v<ver>-hmgapi-usb.zip FAT32 USB stick for HMG-API -> Updates from USB
+# Build, test, and sign installable HMG-API & NEMESIS packages for hmgapi-bounce into dist/:
+#   dist/hmgapi-bounce-v<ver>.zip                 Signed HMG-API mod archive (for Wi-Fi ADB or CLI install)
+#   dist/hmgapi-bounce-v<ver>-hmgapi-usb.zip      FAT32 USB stick for HMG-API -> Updates from USB
+#   dist/hmgapi-bounce-v<ver>-nemesis-package.zip Signed NEMESIS package archive
+#   dist/hmgapi-bounce-v<ver>-nemesis-usb.zip     FAT32 USB stick for NEMESIS USB Package Store
 #   dist/SHA256SUMS
 set -e
 cd "$(dirname "$0")"
@@ -85,20 +87,39 @@ sh "$MOD/tools/unit/test.sh"
 HMGAPI_MOD_BUILD="$PWD/out/build/$MOD" sh "$MOD/test.sh"
 sh "$HMGAPI_SDK/bin/check-scripts.sh" "$MOD"
 
-echo "== 3. Sign HMG-API installable packages =="
+echo "== 3. Sign HMG-API & NEMESIS installable packages =="
 PKG_OUT=$(HMGAPI_MOD_BUILD="$PWD/out/build/$MOD" sh "$HMGAPI_SDK/bin/mkmodpkg.sh" "$MOD" "$HMGAPI_KEY")
 echo "$PKG_OUT"
 SIGNED_ZIP=$(echo "$PKG_OUT" | tail -1)
+sh "$HMGAPI_SDK/bin/mknemesismod.sh" "$SIGNED_ZIP"
 
 mkdir -p dist
 HMGAPI_ZIP="dist/${MOD}-v${VER}.zip"
 HMGAPI_USB="dist/${MOD}-v${VER}-hmgapi-usb.zip"
+NEM_PKG="dist/${MOD}-v${VER}-nemesis-package.zip"
+NEM_USB="dist/${MOD}-v${VER}-nemesis-usb.zip"
+
 cp "$SIGNED_ZIP" "$HMGAPI_ZIP"
+cp "out/dist/${MOD}-${VER}-nemesis-package.zip" "$NEM_PKG"
+cp "out/dist/${MOD}-${VER}-nemesis.zip" "$NEM_USB"
 
-python3 - "$MOD" "$VER" "$HMGAPI_ZIP" "$HMGAPI_USB" <<'PY'
-import sys, zipfile
+python3 - "$MOD" "$VER" "$HMGAPI_ZIP" "$HMGAPI_USB" "$NEM_PKG" "$NEM_USB" <<'PY'
+import os, sys, zipfile
 
-mod, ver, hmg_zip, hmg_usb = sys.argv[1:5]
+mod, ver, hmg_zip, hmg_usb, nem_pkg, nem_usb = sys.argv[1:7]
+
+def swap_in_zip(path, member, new_bytes):
+    with zipfile.ZipFile(path, "r") as z:
+        items = [(i, z.read(i)) for i in z.infolist()]
+    with zipfile.ZipFile(path, "w") as z:
+        for info, data in items:
+            z.writestr(info, new_bytes if info.filename == member else data)
+
+open_sh = os.path.join(mod, "open.sh")
+if os.path.isfile(open_sh):
+    swap_in_zip(nem_pkg, "bin/open.sh", open(open_sh, "rb").read())
+    swap_in_zip(nem_usb, f"packages/hmgapi.{mod}.zip", open(nem_pkg, "rb").read())
+
 with zipfile.ZipFile(hmg_usb, "w", zipfile.ZIP_STORED) as z:
     zi = zipfile.ZipInfo(f"HMGAPI/updates/{mod}-v{ver}.zip", (2026, 1, 1, 0, 0, 0))
     zi.compress_type = zipfile.ZIP_STORED

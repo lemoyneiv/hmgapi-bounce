@@ -205,6 +205,23 @@ public final class BounceUnitTest {
                 !BouncePolicy.isSoftApReadyForReenable(BouncePolicy.WIFI_AP_STATE_DISABLING)
                         && !BouncePolicy.isSoftApReadyForReenable(BouncePolicy.WIFI_AP_STATE_ENABLED)
                         && BouncePolicy.isSoftApReadyForReenable(BouncePolicy.WIFI_AP_STATE_DISABLED));
+
+        // v0.1.3: Stock Open-HMG/HMG-API wifi.sh compatibility & transient hmgapid busy/EPIPE retry
+        String runningStatus = "hmgapi wifi running 4321\n";
+        String stockWifiSh = "#!/system/bin/sh\n# stock Open-HMG shell keeper\nwpa_cli status\n";
+        String daemonWifiSh = "#!/system/bin/sh\nexec /system/bin/app_process /system/bin hmgapi.wifi.HomeWifiDaemon \"$@\"\n";
+        check("Skips @hmgapi-wifi probe on stock Open-HMG/HMG-API shell wifi.sh",
+                !BouncePolicy.shouldProbeHomeWifiDaemonSocket(runningStatus, "home\n", stockWifiSh));
+        check("Probes @hmgapi-wifi when HomeWifiDaemon is running with home Wi-Fi enabled",
+                BouncePolicy.shouldProbeHomeWifiDaemonSocket(runningStatus, "home\n", daemonWifiSh));
+        check("Skips @hmgapi-wifi probe when hmgapi/wifi service is stopped or home not asked",
+                !BouncePolicy.shouldProbeHomeWifiDaemonSocket("hmgapi wifi stopped\n", "home\n", daemonWifiSh)
+                        && !BouncePolicy.shouldProbeHomeWifiDaemonSocket(runningStatus, "ap\n", daemonWifiSh));
+        check("Matches transient hmgapid busy and stock Broken pipe errors only",
+                BouncePolicy.isTransientHmgapidBusyError("hmgapid is busy, try again")
+                        && BouncePolicy.isTransientHmgapidBusyError("Can't reach hmgapid: Broken pipe")
+                        && !BouncePolicy.isTransientHmgapidBusyError("not allowed")
+                        && !BouncePolicy.isTransientHmgapidBusyError(null));
     }
 
     private static void check(String label, boolean cond) {
