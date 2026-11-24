@@ -93,6 +93,21 @@ public final class BounceUnitTest {
                 !BouncePolicy.isAllowedWorkerTarget("com.hkmc.bluetooth"));
         check("Rejects null/empty",
                 !BouncePolicy.isAllowedWorkerTarget("") && !BouncePolicy.isAllowedWorkerTarget(null));
+
+        // Protocol-scoped refresh avoids benign CarPlayService wtf during pure Android Auto bounces
+        check("Android Auto bounce refreshes projection.sink",
+                BouncePolicy.shouldRefreshWorker("com.google.android.projection.sink", true, false, false));
+        check("Android Auto bounce skips dipo unless forced",
+                !BouncePolicy.shouldRefreshWorker("com.daudio.app.dipo", true, false, false));
+        check("Forced Android Auto bounce refreshes dipo too",
+                BouncePolicy.shouldRefreshWorker("com.daudio.app.dipo", true, false, true));
+        check("CarPlay bounce refreshes dipo",
+                BouncePolicy.shouldRefreshWorker("com.daudio.app.dipo", false, true, false));
+        check("CarPlay bounce skips projection.sink unless forced",
+                !BouncePolicy.shouldRefreshWorker("com.google.android.projection.sink", false, true, false));
+        check("Idle/unknown bounce refreshes both allowlisted workers",
+                BouncePolicy.shouldRefreshWorker("com.google.android.projection.sink", false, false, false)
+                        && BouncePolicy.shouldRefreshWorker("com.daudio.app.dipo", false, false, false));
     }
 
     private static void testMultiPhoneNudgeAndProjectionType() {

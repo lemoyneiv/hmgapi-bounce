@@ -15,7 +15,7 @@ public final class BouncePolicy {
 
     private BouncePolicy() {}
 
-    public static final String VERSION = "0.1.1";
+    public static final String VERSION = "0.1.2";
 
     /** Gen5W ModeManager ModeType constants. */
     public static final int MODE_NONE = 0;
@@ -150,6 +150,28 @@ public final class BouncePolicy {
             return false;
         }
         return PKG_GPM_SINK.equals(clean) || PKG_DIPO.equals(clean);
+    }
+
+    /**
+     * Scopes Phase 3 worker {@code SIGTERM} refresh to the active projection protocol when known:
+     * skips {@code com.daudio.app.dipo} during pure Android Auto bounces (unless forced) so stock
+     * KitKat {@code ActivityManagerService} does not emit a benign {@code CarPlayService} map {@code wtf}.
+     */
+    public static boolean shouldRefreshWorker(
+            String processCmdline,
+            boolean hadAa,
+            boolean hadCp,
+            boolean forced) {
+        if (!isAllowedWorkerTarget(processCmdline)) return false;
+        String clean = processCmdline.trim();
+        if (forced) return true;
+        if (hadAa && !hadCp) {
+            return PKG_GPM_SINK.equals(clean);
+        }
+        if (hadCp && !hadAa) {
+            return PKG_DIPO.equals(clean);
+        }
+        return true;
     }
 
     public static boolean isCameraActive(boolean pgsCameraActive, int modeRearView, String foregroundPkg) {

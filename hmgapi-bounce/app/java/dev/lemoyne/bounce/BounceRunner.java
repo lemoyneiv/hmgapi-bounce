@@ -215,6 +215,7 @@ public final class BounceRunner {
 
         if (manual) {
             sendToastAsync("Bouncing Wi-Fi & Bluetooth…");
+            healStalledHomeWifiIfNeeded();
         }
 
         // ---- Phase 1: Snapshot pre-bounce session & send protocol-clean PPService disconnect ----
@@ -232,6 +233,8 @@ public final class BounceRunner {
             preMode = BouncePolicy.MODE_ANDROID_AUTO;
         }
 
+        boolean hadAa = !preAaMac.isEmpty() || preMode == BouncePolicy.MODE_ANDROID_AUTO;
+        boolean hadCp = !preCpMac.isEmpty() || preMode == BouncePolicy.MODE_CARPLAY;
         boolean holdMute = BouncePolicy.shouldHoldHardwareMute(preMode, preAud, userMute);
         String initTarget = BouncePolicy.selectReconnectNudgeTarget("", "", preAaMac, preCpMac, preHfpMac, preConnMac);
 
@@ -267,10 +270,10 @@ public final class BounceRunner {
         }
         long downMs = SystemClock.elapsedRealtime() - downStart;
 
-        // ---- Phase 3: Refresh projection.sink & dipo workers strictly while Bluetooth is OFF ----
+        // ---- Phase 3: Refresh projection.sink / dipo workers strictly while Bluetooth is OFF ----
         int refreshedWorkers = 0;
         if (resetApps && readBluetoothState() == BouncePolicy.BT_STATE_OFF) {
-            refreshedWorkers = sigtermAllowlistedWorkers();
+            refreshedWorkers = sigtermAllowlistedWorkers(hadAa, hadCp, forced);
             if (refreshedWorkers > 0) {
                 sleepQuietly(BouncePolicy.WORKER_SETTLE_MS);
             }
@@ -567,7 +570,7 @@ public final class BounceRunner {
         }
     }
 
-    private static int sigtermAllowlistedWorkers() {
+    private static int sigtermAllowlistedWorkers(boolean hadAa, boolean hadCp, boolean forced) {
         int count = 0;
         File proc = new File("/proc");
         File[] dirs = proc.listFiles();
@@ -586,7 +589,7 @@ public final class BounceRunner {
             }
             if (pid <= 1 || pid == myPid) continue;
             String cmd = readProcCmdline(new File(d, "cmdline"));
-            if (BouncePolicy.isAllowedWorkerTarget(cmd)) {
+            if (BouncePolicy.shouldRefreshWorker(cmd, hadAa, hadCp, forced)) {
                 targets.add(Integer.valueOf(pid));
             }
         }
@@ -598,6 +601,54 @@ public final class BounceRunner {
             } catch (Throwable ignored) {}
         }
         return count;
+    }
+
+    /**
+     * Self-heals HMG-API's Home Wi-Fi daemon (@hmgapi-wifi) during manual bounces if hmgapid
+     * reports hmgapi/wifi running while @hmgapi-wifi fails to respond within 800ms.
+     */
+    private static void healStalledHomeWifiIfNeeded() {
+        try {
+            String status = readSmallUtf8(new File("/data/hmgapi/state/services.status"));
+            if (!status.contains("hmgapi wifi running ")) {
+                return;
+            }
+            String asks = readSmallUtf8(new File("/data/hmgapi/state/wifi.txt"));
+            if (!asks.contains("home")) {
+                return;
+            }
+            android.net.LocalSocket s = new android.net.LocalSocket();
+            boolean ok = false;
+            try {
+                s.connect(new android.net.LocalSocketAddress(
+                        "hmgapi-wifi", android.net.LocalSocketAddress.Namespace.ABSTRACT));
+                s.setSoTimeout(800);
+                byte[] req = new byte[] {
+                    'L', 'F', 'D', '1',
+                    1, 0, 0, 0,
+                    6, 0, 0, 0,
+                    's', 't', 'a', 't', 'u', 's'
+                };
+                java.io.OutputStream out = s.getOutputStream();
+                out.write(req);
+                out.flush();
+                byte[] hdr = new byte[8];
+                java.io.DataInputStream in = new java.io.DataInputStream(s.getInputStream());
+                in.readFully(hdr);
+                ok = true;
+            } catch (Throwable ignored) {
+                ok = false;
+            } finally {
+                try { s.close(); } catch (Throwable ignored) {}
+            }
+            if (!ok) {
+                File ctlDir = new File("/data/hmgapi/state/ctl");
+                ctlDir.mkdirs();
+                File ctl = new File(ctlDir, "bounce-wifi-" + android.os.Process.myPid());
+                writeSmallUtf8(ctl, "restart hmgapi wifi", true);
+                log("detected unresponsive @hmgapi-wifi; queued hmgapi/wifi restart");
+            }
+        } catch (Throwable ignored) {}
     }
 
     private static String readProcCmdline(File cmdFile) {

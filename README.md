@@ -1,6 +1,6 @@
 # Bounce Connection (`hmgapi-bounce`)
 
-**Bounce Connection** (`v0.1.1`) is a lightweight, standalone **HMG-API** (`>= 1.1.0`) mod (`AGPL-3.0`) for **Hyundai, Kia, and Genesis Gen5W** head units that performs a fast (`~5 s`), cold-boot-safe soft-reset of **5 GHz Connectivity Wi-Fi SoftAP**, **Bluetooth**, and **Wireless CarPlay / Android Auto** without rebooting the head unit.
+**Bounce Connection** (`v0.1.2`) is a lightweight, standalone **HMG-API** (`>= 1.1.0`) mod (`AGPL-3.0`) for **Hyundai, Kia, and Genesis Gen5W** head units that performs a fast (`~5 s`), cold-boot-safe soft-reset of **5 GHz Connectivity Wi-Fi SoftAP**, **Bluetooth**, and **Wireless CarPlay / Android Auto** without rebooting the head unit.
 
 ---
 
@@ -31,7 +31,7 @@
 
 ```bash
 adb connect <CAR_LAN_IP>:5555
-adb push hmgapi-bounce-v0.1.1.zip /data/local/tmp/pkg.zip
+adb push hmgapi-bounce-v0.1.2.zip /data/local/tmp/pkg.zip
 adb shell "/system/bin/hmgapid engine install /data/local/tmp/pkg.zip && /system/bin/hmgapid engine apply && rm -f /data/local/tmp/pkg.zip"
 ```
 
