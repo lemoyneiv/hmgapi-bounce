@@ -30,6 +30,7 @@ check "SOS/eCall button untouched in mod.json" no \
 
 install_mod "$B"
 cp -r "$M/icons" "$R/data/hmgapi/mods/hmgapi-bounce/"
+cp -r "$M/scripts" "$R/data/hmgapi/mods/hmgapi-bounce/"
 cp "$M/open.sh" "$R/data/hmgapi/mods/hmgapi-bounce/"
 
 eng plan
@@ -53,6 +54,9 @@ has "manual bounce-silent service registered in services.txt" \
     "$(cat "$R/data/hmgapi/state/services.txt")"
 has "manual watchdog service registered in services.txt" \
     "hmgapi-bounce watchdog root manual no jar app/Bounce.apk dev.lemoyne.bounce.BounceRunner watchdog" \
+    "$(cat "$R/data/hmgapi/state/services.txt")"
+has "boot cleanup fast-path script registered in services.txt" \
+    "hmgapi-bounce cleanup root boot no script scripts/cleanup.sh" \
     "$(cat "$R/data/hmgapi/state/services.txt")"
 has "vehicle service runs for wake/unparked car_events" \
     "hmgapi vehicle " \

@@ -15,7 +15,7 @@ public final class BouncePolicy {
 
     private BouncePolicy() {}
 
-    public static final String VERSION = "0.1.3";
+    public static final String VERSION = "0.1.4";
 
     /** Gen5W ModeManager ModeType constants. */
     public static final int MODE_NONE = 0;
@@ -342,6 +342,76 @@ public final class BouncePolicy {
         if (message == null || message.isEmpty()) return false;
         String low = message.toLowerCase(Locale.US);
         return low.contains("hmgapid is busy") || low.contains("broken pipe");
+    }
+
+    /**
+     * Zero-IPC cold-boot &amp; car-event fast-path using HMG-API's world-readable
+     * {@code /data/hmgapi/public/state.json}. Returns {@code true} when {@code BounceReceiver}
+     * can return immediately without calling {@code goAsync()}, spawning a thread, or opening
+     * {@code @hmgapid} socket IPC (e.g., default {@code auto_bounce_mode = "off"}, mod disabled,
+     * or {@code "every_wake"} on {@code BOOT_COMPLETED}).
+     *
+     * <p>When {@code publicStateJson} is unreadable/empty, returns {@code false} so
+     * {@code BounceDispatcher} falls back to querying {@code hmgapid}.</p>
+     */
+    public static boolean shouldSkipAutoEventForPublicState(String eventType, String publicStateJson) {
+        if (publicStateJson == null || publicStateJson.trim().isEmpty()) {
+            return false;
+        }
+        String modObj = extractJsonObject(publicStateJson, "hmgapi-bounce");
+        if (modObj.isEmpty()) {
+            return true;
+        }
+        String compact = modObj.replace(" ", "").replace("\n", "").replace("\r", "").replace("\t", "");
+        if (compact.contains("\"enabled\":false")) {
+            return true;
+        }
+        String mode = extractJsonString(modObj, "auto_bounce_mode");
+        if (mode.isEmpty() || "off".equalsIgnoreCase(mode)) {
+            return true;
+        }
+        if ("boot".equals(eventType) && "every_wake".equalsIgnoreCase(mode)) {
+            return true;
+        }
+        return false;
+    }
+
+    static String extractJsonObject(String json, String key) {
+        if (json == null || key == null) return "";
+        String needle = "\"" + key + "\"";
+        int idx = json.indexOf(needle);
+        if (idx < 0) return "";
+        int colon = json.indexOf(':', idx + needle.length());
+        if (colon < 0) return "";
+        int brace = json.indexOf('{', colon + 1);
+        if (brace < 0) return "";
+        int depth = 0;
+        boolean inStr = false;
+        boolean esc = false;
+        for (int i = brace; i < json.length(); i++) {
+            char c = json.charAt(i);
+            if (inStr) {
+                if (esc) {
+                    esc = false;
+                } else if (c == '\\') {
+                    esc = true;
+                } else if (c == '"') {
+                    inStr = false;
+                }
+            } else {
+                if (c == '"') {
+                    inStr = true;
+                } else if (c == '{') {
+                    depth++;
+                } else if (c == '}') {
+                    depth--;
+                    if (depth == 0) {
+                        return json.substring(brace, i + 1);
+                    }
+                }
+            }
+        }
+        return "";
     }
 
     static boolean isActiveLeaseFresh(String curBootId, long nowElapsedMs, String json) {

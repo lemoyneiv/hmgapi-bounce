@@ -222,6 +222,29 @@ public final class BounceUnitTest {
                         && BouncePolicy.isTransientHmgapidBusyError("Can't reach hmgapid: Broken pipe")
                         && !BouncePolicy.isTransientHmgapidBusyError("not allowed")
                         && !BouncePolicy.isTransientHmgapidBusyError(null));
+
+        // v0.1.4: Zero-IPC cold-boot & car-event fast-return when auto_bounce_mode is off
+        String stateOff = "{\"serial\":1,\"mods\":{\"other\":{\"settings\":{\"auto_bounce_mode\":\"watchdog\"}},"
+                + "\"hmgapi-bounce\":{\"enabled\":true,\"version\":\"0.1.4\",\"settings\":{\"auto_bounce_mode\":\"off\"}}}}";
+        String stateWatchdog = "{\"serial\":2,\"mods\":{\"hmgapi-bounce\":{\"enabled\":true,"
+                + "\"settings\":{\"reset_projection_apps\":true,\"auto_bounce_mode\":\"watchdog\"}}}}";
+        String stateEveryWake = "{\"serial\":3,\"mods\":{\"hmgapi-bounce\":{\"enabled\":true,"
+                + "\"settings\":{\"auto_bounce_mode\":\"every_wake\"}}}}";
+        String stateDisabled = "{\"serial\":4,\"mods\":{\"hmgapi-bounce\":{\"enabled\":false,"
+                + "\"settings\":{\"auto_bounce_mode\":\"watchdog\"}}}}";
+        check("v0.1.4 skips BOOT_COMPLETED and wake when auto_bounce_mode=off",
+                BouncePolicy.shouldSkipAutoEventForPublicState("boot", stateOff)
+                        && BouncePolicy.shouldSkipAutoEventForPublicState("wake", stateOff));
+        check("v0.1.4 does NOT skip BOOT_COMPLETED or wake when auto_bounce_mode=watchdog",
+                !BouncePolicy.shouldSkipAutoEventForPublicState("boot", stateWatchdog)
+                        && !BouncePolicy.shouldSkipAutoEventForPublicState("wake", stateWatchdog));
+        check("v0.1.4 skips BOOT_COMPLETED for every_wake while allowing wake/unparked",
+                BouncePolicy.shouldSkipAutoEventForPublicState("boot", stateEveryWake)
+                        && !BouncePolicy.shouldSkipAutoEventForPublicState("wake", stateEveryWake)
+                        && !BouncePolicy.shouldSkipAutoEventForPublicState("unparked", stateEveryWake));
+        check("v0.1.4 skips when mod disabled and falls back safely when state.json missing",
+                BouncePolicy.shouldSkipAutoEventForPublicState("boot", stateDisabled)
+                        && !BouncePolicy.shouldSkipAutoEventForPublicState("boot", ""));
     }
 
     private static void check(String label, boolean cond) {

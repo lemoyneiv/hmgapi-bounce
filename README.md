@@ -1,6 +1,6 @@
 # Bounce Connection (`hmgapi-bounce`)
 
-**Bounce Connection** (`v0.1.3`) is a lightweight, standalone **[HMG-API](https://github.com/Open-HMG/HMG-API)** (`>= 1.1.0-rc.x`) mod (`AGPL-3.0`) for **Hyundai, Kia, and Genesis Gen5W** head units that performs a fast (`~5 s`), cold-boot-safe soft-reset of **5 GHz Connectivity Wi-Fi SoftAP**, **Bluetooth**, and **Wireless CarPlay / Android Auto** without rebooting the head unit.
+**Bounce Connection** (`v0.1.4`) is a lightweight, standalone **[HMG-API](https://github.com/Open-HMG/HMG-API)** (`>= 1.1.0-rc.x`) mod (`AGPL-3.0`) for **Hyundai, Kia, and Genesis Gen5W** head units that performs a fast (`~5 s`), cold-boot-safe soft-reset of **5 GHz Connectivity Wi-Fi SoftAP**, **Bluetooth**, and **Wireless CarPlay / Android Auto** without rebooting the head unit.
 
 It works out of the box on **stock `Open-HMG/HMG-API`** (`>= 1.1.0-rc.x`) with **zero custom Zygote hook points and zero dependencies on any other mod**.
 
@@ -41,17 +41,17 @@ It works out of the box on **stock `Open-HMG/HMG-API`** (`>= 1.1.0-rc.x`) with *
 ## Installation
 
 ### Option A — HMG-API Updates via USB Stick *(Recommended)*
-1. Extract **`hmgapi-bounce-v0.1.3-hmgapi-usb.zip`** onto the root of a **FAT32** USB drive (producing `HMGAPI/updates/hmgapi-bounce-v0.1.3.zip`).
+1. Extract **`hmgapi-bounce-v0.1.4-hmgapi-usb.zip`** onto the root of a **FAT32** USB drive (producing `HMGAPI/updates/hmgapi-bounce-v0.1.4.zip`).
 2. Plug the USB drive into the car's data USB port, open **HMG-API -> Updates**, install **Bounce Connection**, tap **Apply changes**, and **restart once** so the Home Screen tile and `★` button action register.
 
 ### Option B — NEMESIS USB Package Store
-1. Extract **`hmgapi-bounce-v0.1.3-nemesis-usb.zip`** onto the root of a **FAT32** USB drive (`NEMESIS.sh` + `packages/hmgapi.hmgapi-bounce.zip`).
+1. Extract **`hmgapi-bounce-v0.1.4-nemesis-usb.zip`** onto the root of a **FAT32** USB drive (`NEMESIS.sh` + `packages/hmgapi.hmgapi-bounce.zip`).
 2. Plug the USB drive into the car, install **Bounce Connection** from the NEMESIS prompt, and **restart once**.
 
 ### Option C — Over ADB (USB or Home Wi-Fi)
 ```bash
 adb connect <HEAD_UNIT_IP>:5555
-adb push hmgapi-bounce-v0.1.3.zip /data/local/tmp/pkg.zip
+adb push hmgapi-bounce-v0.1.4.zip /data/local/tmp/pkg.zip
 adb shell "/system/bin/hmgapid engine install /data/local/tmp/pkg.zip && /system/bin/hmgapid engine apply && rm -f /data/local/tmp/pkg.zip"
 adb shell "/system/bin/hmgapid reboot"
 ```
